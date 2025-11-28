@@ -1,12 +1,26 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use Laravel\Fortify\Features;
+use App\Models\User;
 use Livewire\Volt\Volt;
+use Laravel\Fortify\Features;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\MigrationController;
 
 // Route::get('/', function () {
 //     return view('welcome');
 // })->name('home');
+
+Route::get('/db-check', function () {
+    return [
+        'env_db'    => env('DB_DATABASE'),
+        'config_db' => config('database.connections.mysql.database'),
+        'users_count' => User::count(),
+        'first_user'  => User::first(),
+    ];
+});
+
+Route::get('/migration', [MigrationController::class, 'showForm']);
+Route::post('/migration', [MigrationController::class, 'run'])->name('migration.run');
 
 Route::get('/', function () {
     return view('welcome');

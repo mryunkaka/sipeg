@@ -123,4 +123,6 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    'migration_panel_password' => env('MIGRATION_PANEL_PASSWORD'),
+
 ];
