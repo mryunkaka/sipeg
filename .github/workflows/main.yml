@@ -50,6 +50,7 @@ jobs:
           protocol: ftp
           local-dir: "./"
           server-dir: ${{ secrets.FTP_PATH }}
+          timeout: 600000
           exclude: |
             **/.git*
             **/.github/**
