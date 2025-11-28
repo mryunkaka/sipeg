@@ -1,0 +1,60 @@
+name: Deploy SIPEG to Rumahweb
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, intl, pdo_mysql
+          coverage: none
+
+      - name: Install composer dependencies
+        run: |
+          composer install --no-dev --optimize-autoloader --prefer-dist
+
+      - name: Build assets (Vite)
+        run: |
+          npm ci
+          npm run build
+        env:
+          CI: false
+
+      - name: Cleanup before deploy
+        run: |
+          rm -rf node_modules
+          rm -rf .git
+          rm -rf tests
+          rm -rf .github
+
+      - name: FTP Deploy
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: ${{ secrets.FTP_PORT }}
+          protocol: ftp
+          local-dir: "./"
+          server-dir: ${{ secrets.FTP_PATH }}
+          exclude: |
+            **/.git*
+            **/.github/**
+            **/node_modules/**
+            **/tests/**
+            **/.env
+            **/storage/framework/cache/**
+            **/storage/framework/sessions/**
+            **/storage/logs/**
