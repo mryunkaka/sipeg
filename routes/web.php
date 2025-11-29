@@ -3,114 +3,124 @@
 use App\Models\Unit;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MigrationController;
 
-Route::get('/test-units', function () {
-    // Test raw query
-    $raw = DB::select('SELECT * FROM units');
+/*
+|--------------------------------------------------------------------------
+| DEBUG: Perbaiki & Seed Ulang Tabel UNITS
+|--------------------------------------------------------------------------
+|
+| HANYA UNTUK SEMENTARA DI HOSTING. Setelah beres, hapus route ini.
+|
+*/
 
-    // Test Eloquent
-    $eloquent = \App\Models\Unit::all();
-
-    return response()->json([
-        'raw_query' => $raw,
-        'eloquent' => $eloquent,
-        'connection' => config('database.default'),
-        'charset' => config('database.connections.mysql.charset'),
-    ]);
-});
-
-Route::get('/debug-units-insert', function () {
-    $id = DB::table('units')->insertGetId([
-        'nama_unit'   => 'DEBUG FROM LARAVEL ' . now()->format('His'),
-        'alamat_unit' => 'DEBUG LARAVEL',
-        'no_hp_unit'  => '0000000000',
-        'logo_unit'   => null,
-        'created_at'  => now(),
-        'updated_at'  => now(),
-    ]);
-
-    return [
-        'inserted_id' => $id,
-    ];
-});
-
-Route::get('/debug-seed-units', function () {
-    $now = now();
-
-    $units = [
-        [
-            'nama_unit'   => 'HOTEL HARMONY',
-            'alamat_unit' => 'Jl. Raya Batulicin, ...',
-            'no_hp_unit'  => '087878987654',
-        ],
-        [
-            'nama_unit'   => 'GUESTHOUSE RUMA',
-            'alamat_unit' => 'Jl. Suryagandamana, ...',
-            'no_hp_unit'  => '087877521992',
-        ],
-        [
-            'nama_unit'   => 'HOTEL GALERY',
-            'alamat_unit' => 'Jl. Pangeran Hidayat No.26, ...',
-            'no_hp_unit'  => '085827191234',
-        ],
-        [
-            'nama_unit'   => 'HOTEL KARTIKA',
-            'alamat_unit' => 'Jl. Veteran No.2, ...',
-            'no_hp_unit'  => '082150942567',
-        ],
-        [
-            'nama_unit'   => 'HOTEL LAVENDER',
-            'alamat_unit' => 'Jl. Raya provinsi No. km 163, ...',
-            'no_hp_unit'  => '085289987654',
-        ],
-    ];
-
-    // kosongkan dulu isi units (lebih aman delete biasa, bukan truncate)
-    DB::table('users')->update(['unit_id' => null]);  // jaga FK
-    DB::table('units')->delete();
-
-    foreach ($units as $u) {
-        DB::table('units')->insert([
-            'nama_unit'   => $u['nama_unit'],
-            'alamat_unit' => $u['alamat_unit'],
-            'no_hp_unit'  => $u['no_hp_unit'],
-            'logo_unit'   => null,
-            'created_at'  => $now,
-            'updated_at'  => $now,
-        ]);
-    }
-
-    return [
-        'status'   => 'ok',
-        'inserted' => count($units),
-        'db'       => config('database.connections.mysql.database'),
-    ];
-});
-
+// 1. Lihat struktur tabel units + sample data
 Route::get('/debug-units', function () {
-    return [
-        'env_db'    => env('DB_DATABASE'),
-        'env_host'  => env('DB_HOST'),
-        'env_user'  => env('DB_USERNAME'),
+    try {
+        $columns = Schema::getColumnListing('units');
 
-        'default_connection' => config('database.default'),
-        'config_host'        => config('database.connections.mysql.host'),
-        'config_db'          => config('database.connections.mysql.database'),
-        'config_user'        => config('database.connections.mysql.username'),
-
-        // Hitung dengan query builder mentah
-        'raw_count'   => DB::table('units')->count(),
-        'raw_sample'  => DB::table('units')->select('id', 'nama_unit')->limit(5)->get(),
-
-        // Hitung dengan Eloquent model Unit
-        'eloq_conn'   => (new Unit)->getConnectionName(),
-        'eloq_count'  => Unit::count(),
-        'eloq_sample' => Unit::select('id', 'nama_unit')->limit(5)->get(),
-    ];
+        return [
+            'env_db'       => env('DB_DATABASE'),
+            'config_db'    => config('database.connections.mysql.database'),
+            'columns'      => $columns,
+            'raw_count'    => DB::table('units')->count(),
+            'raw_sample'   => DB::table('units')->select('id', 'nama_unit')->limit(10)->get(),
+            'eloq_count'   => Unit::count(),
+            'eloq_sample'  => Unit::select('id', 'nama_unit')->limit(10)->get(),
+        ];
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => $e->getMessage(),
+            'file'    => $e->getFile(),
+            'line'    => $e->getLine(),
+        ], 500);
+    }
 });
 
+// 2. Perbaiki & isi ulang data units
+Route::get('/debug-fix-units', function () {
+    try {
+        $now     = now();
+        $columns = Schema::getColumnListing('units');
+
+        // Daftar unit yang mau kita pastikan ada
+        $seedUnits = [
+            'HOTEL HARMONY',
+            'GUESTHOUSE RUMA',
+            'HOTEL GALERY',
+            'HOTEL KARTIKA',
+            'HOTEL LAVENDER',
+        ];
+
+        DB::beginTransaction();
+
+        // Hapus baris-baris korup (nama_unit null / kosong)
+        DB::table('units')
+            ->whereNull('nama_unit')
+            ->orWhere('nama_unit', '')
+            ->delete();
+
+        // Option: kalau mau benar-benar kosongkan dulu
+        // DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        // DB::table('units')->delete();
+        // DB::statement('SET FOREIGN_KEY_CHECKS=1');
+
+        foreach ($seedUnits as $nama) {
+            $data = [
+                'nama_unit' => $nama,
+            ];
+
+            // Isi kolom lain hanya kalau kolomnya memang ada di tabel
+            if (in_array('alamat_unit', $columns)) {
+                $data['alamat_unit'] = 'Alamat ' . $nama;
+            }
+
+            if (in_array('no_hp_unit', $columns)) {
+                $data['no_hp_unit'] = '08xxxxxxxxxx';
+            }
+
+            if (in_array('logo_unit', $columns)) {
+                $data['logo_unit'] = null;
+            }
+
+            if (in_array('created_at', $columns)) {
+                $data['created_at'] = $now;
+            }
+
+            if (in_array('updated_at', $columns)) {
+                $data['updated_at'] = $now;
+            }
+
+            // updateOrInsert supaya tidak error walaupun sudah ada
+            DB::table('units')->updateOrInsert(
+                ['nama_unit' => $nama],
+                $data
+            );
+        }
+
+        DB::commit();
+
+        return [
+            'status'     => 'ok',
+            'columns'    => $columns,
+            'raw_count'  => DB::table('units')->count(),
+            'eloq_count' => Unit::count(),
+            'sample'     => Unit::select('id', 'nama_unit')->limit(10)->get(),
+        ];
+    } catch (\Throwable $e) {
+        DB::rollBack();
+
+        return response()->json([
+            'status'  => 'error',
+            'message' => $e->getMessage(),
+            'file'    => $e->getFile(),
+            'line'    => $e->getLine(),
+        ], 500);
+    }
+});
 // ===============================
 // 1. AUTH (HALAMAN LOGIN SAJA YANG BEBAS)
 // ===============================
