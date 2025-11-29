@@ -59,6 +59,63 @@ Route::get('/debug-units', function () {
     }
 });
 
+Route::get('/debug-login-units-final', function () {
+    try {
+        $envDb  = env('DB_DATABASE');
+        $config = config('database.connections.mysql');
+
+        // tes query mentah
+        $raw = DB::select('SELECT id, nama_unit FROM units ORDER BY id LIMIT 10');
+
+        // tes via Query Builder
+        $qb = DB::table('units')
+            ->select('id', 'nama_unit')
+            ->orderBy('id')
+            ->limit(10)
+            ->get();
+
+        // tes via Eloquent
+        $eloq = Unit::query()
+            ->select('id', 'nama_unit')
+            ->orderBy('id')
+            ->limit(10)
+            ->get();
+
+        $data = [
+            'env_db'        => $envDb,
+            'config_db'     => $config['database'] ?? null,
+            'config_host'   => $config['host'] ?? null,
+            'config_user'   => $config['username'] ?? null,
+
+            'raw_count'     => count($raw),
+            'raw_sample'    => $raw,
+
+            'qb_count'      => $qb->count(),
+            'qb_sample'     => $qb,
+
+            'eloq_count'    => $eloq->count(),
+            'eloq_sample'   => $eloq,
+        ];
+
+        // pakai flag supaya TIDAK error UTF-8 lagi
+        return response()->json(
+            $data,
+            200,
+            [],
+            JSON_PRETTY_PRINT
+                | JSON_PARTIAL_OUTPUT_ON_ERROR
+                | JSON_INVALID_UTF8_SUBSTITUTE
+        );
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => $e->getMessage(),
+            'file'    => $e->getFile(),
+            'line'    => $e->getLine(),
+        ], 500);
+    }
+});
+
 
 // Isi ulang tabel units
 
