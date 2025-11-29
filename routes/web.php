@@ -1,50 +1,61 @@
 <?php
 
-use App\Models\User;
-use Livewire\Volt\Volt;
-use Laravel\Fortify\Features;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MigrationController;
 
-// Route::get('/', function () {
-//     return view('welcome');
-// })->name('home');
 
-Route::get('/db-check', function () {
-    return [
-        'env_db'    => env('DB_DATABASE'),
-        'config_db' => config('database.connections.mysql.database'),
-        'users_count' => User::count(),
-        'first_user'  => User::first(),
-    ];
-});
+// ===============================
+// 1. AUTH (HALAMAN LOGIN SAJA YANG BEBAS)
+// ===============================
+
+// Login form
+Route::get('/login', [AuthController::class, 'showLoginForm'])
+    ->name('login')
+    ->middleware('guest');
+
+// Process login
+Route::post('/login', [AuthController::class, 'login'])
+    ->name('login.attempt')
+    ->middleware('guest');
+
+// Logout
+Route::post('/logout', [AuthController::class, 'logout'])
+    ->name('logout')
+    ->middleware('auth');
+
+
+// ===============================
+// 2. MIGRATION (BEBAS AKSES TANPA LOGIN)
+// ===============================
 
 Route::get('/migration', [MigrationController::class, 'showForm']);
-Route::post('/migration', [MigrationController::class, 'run'])->name('migration.run');
+Route::post('/migration', [MigrationController::class, 'run'])
+    ->name('migration.run');
 
-Route::get('/', function () {
-    return view('welcome');
+
+// ===============================
+// 3. PROTECTED PAGES (WAJIB LOGIN)
+// ===============================
+
+Route::middleware('auth')->group(function () {
+
+    // Dashboard admin
+    Route::get('/admin', function () {
+        return view('admin.dashboard');
+    })->name('admin.dashboard');
+
+    // Semua halaman lain tambah di sini
+    // Contoh:
+    // Route::get('/karyawan', [KaryawanController::class, 'index'])->name('karyawan.index');
+
 });
 
-Route::view('dashboard', 'dashboard')
-    ->middleware(['auth', 'verified'])
-    ->name('dashboard');
 
-Route::middleware(['auth'])->group(function () {
-    Route::redirect('settings', 'settings/profile');
+// ===============================
+// 4. ROOT: Redirect ke LOGIN jika belum login
+// ===============================
 
-    Volt::route('settings/profile', 'settings.profile')->name('profile.edit');
-    Volt::route('settings/password', 'settings.password')->name('user-password.edit');
-    Volt::route('settings/appearance', 'settings.appearance')->name('appearance.edit');
-
-    Volt::route('settings/two-factor', 'settings.two-factor')
-        ->middleware(
-            when(
-                Features::canManageTwoFactorAuthentication()
-                    && Features::optionEnabled(Features::twoFactorAuthentication(), 'confirmPassword'),
-                ['password.confirm'],
-                [],
-            ),
-        )
-        ->name('two-factor.show');
+Route::get('/', function () {
+    return redirect()->route('login');
 });
