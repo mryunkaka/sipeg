@@ -16,7 +16,6 @@ use App\Http\Controllers\MigrationController;
 | Setelah beres, silakan dihapus.
 */
 
-// Cek struktur & isi tabel units
 Route::get('/debug-units', function () {
     try {
         $columns = Schema::getColumnListing('units');
@@ -41,23 +40,27 @@ Route::get('/debug-units', function () {
 });
 
 // Isi ulang tabel units
+
 Route::get('/debug-fix-units', function () {
     try {
         $now = now();
 
-        DB::beginTransaction();
+        // 1. Matikan cek foreign key sementara
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
 
-        // 1. Putus dulu relasi user -> unit (supaya FK tidak rewel)
-        if (Schema::hasColumn('users', 'unit_id')) {
-            DB::table('users')->update(['unit_id' => null]);
+        // 2. Truncate users & units (HATI-HATI: reset total isi kedua tabel)
+        if (Schema::hasTable('users')) {
+            DB::table('users')->truncate();
         }
 
-        // 2. BENAR-BENAR KOSONGKAN TABEL UNITS
-        DB::statement('SET FOREIGN_KEY_CHECKS=0');
-        DB::table('units')->truncate();
+        if (Schema::hasTable('units')) {
+            DB::table('units')->truncate();
+        }
+
+        // 3. Nyalakan lagi cek foreign key
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
-        // 3. ISI ULANG DATA BERSIH
+        // 4. Isi ulang data units bersih
         $rows = [
             [
                 'nama_unit'   => 'HOTEL HARMONY',
@@ -103,9 +106,6 @@ Route::get('/debug-fix-units', function () {
 
         DB::table('units')->insert($rows);
 
-        DB::commit();
-
-        // 4. Ambil sample (sekarang sudah pasti bersih semua)
         $afterCount  = DB::table('units')->count();
         $afterSample = DB::table('units')
             ->select('id', 'nama_unit')
@@ -119,8 +119,7 @@ Route::get('/debug-fix-units', function () {
             'after_sample' => $afterSample,
         ];
     } catch (\Throwable $e) {
-        DB::rollBack();
-
+        // ⚠️ TANPA rollBack karena kita tidak pakai transaction
         return response()->json([
             'status'  => 'error',
             'message' => $e->getMessage(),
@@ -129,7 +128,6 @@ Route::get('/debug-fix-units', function () {
         ], 500);
     }
 });
-
 
 // ===============================
 // 1. AUTH (HALAMAN LOGIN SAJA YANG BEBAS)
