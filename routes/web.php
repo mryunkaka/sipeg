@@ -34,11 +34,77 @@ Route::get('/debug-units', function () {
 });
 
 Route::get('/debug-fix-units', function () {
-    return [
-        'status'  => 'test-only',
-        'version' => 'v3',
-        'now'     => now()->toDateTimeString(),
-    ];
+    try {
+        $now = now();
+
+        // Opsional: kalau mau benar-benar kosongkan dulu
+        // HATI-HATI: akan menghapus semua data units yang ada
+        // DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        // DB::table('units')->truncate();
+        // DB::statement('SET FOREIGN_KEY_CHECKS=1');
+
+        // Data unit yang mau dimasukkan
+        $rows = [
+            [
+                'nama_unit'   => 'HOTEL HARMONY',
+                'alamat_unit' => 'Jl. Raya Batulicin',
+                'no_hp_unit'  => '087878987654',
+                'logo_unit'   => null,
+                'created_at'  => $now,
+                'updated_at'  => $now,
+            ],
+            [
+                'nama_unit'   => 'GUESTHOUSE RUMA',
+                'alamat_unit' => 'Jl. Suryagandamana',
+                'no_hp_unit'  => '087877521992',
+                'logo_unit'   => null,
+                'created_at'  => $now,
+                'updated_at'  => $now,
+            ],
+            [
+                'nama_unit'   => 'HOTEL GALERY',
+                'alamat_unit' => 'Jl. Pangeran Hidayat',
+                'no_hp_unit'  => '085827191234',
+                'logo_unit'   => null,
+                'created_at'  => $now,
+                'updated_at'  => $now,
+            ],
+            [
+                'nama_unit'   => 'HOTEL KARTIKA',
+                'alamat_unit' => 'Jl. Veteran No.2',
+                'no_hp_unit'  => '082150942567',
+                'logo_unit'   => null,
+                'created_at'  => $now,
+                'updated_at'  => $now,
+            ],
+            [
+                'nama_unit'   => 'HOTEL LAVENDER',
+                'alamat_unit' => 'Jl. Provinsi km 163',
+                'no_hp_unit'  => '085289987654',
+                'logo_unit'   => null,
+                'created_at'  => $now,
+                'updated_at'  => $now,
+            ],
+        ];
+
+        DB::table('units')->insert($rows);
+
+        return [
+            'status'       => 'ok',
+            'after_count'  => DB::table('units')->count(),
+            'after_sample' => DB::table('units')
+                ->select('id', 'nama_unit')
+                ->limit(10)
+                ->get(),
+        ];
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => $e->getMessage(),
+            'file'    => $e->getFile(),
+            'line'    => $e->getLine(),
+        ], 500);
+    }
 });
 
 // ===============================
