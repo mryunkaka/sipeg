@@ -45,6 +45,19 @@ Route::get('/debug-fix-units', function () {
     try {
         $now = now();
 
+        DB::beginTransaction();
+
+        // 1. Putus dulu relasi user -> unit (supaya FK tidak rewel)
+        if (Schema::hasColumn('users', 'unit_id')) {
+            DB::table('users')->update(['unit_id' => null]);
+        }
+
+        // 2. BENAR-BENAR KOSONGKAN TABEL UNITS
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        DB::table('units')->truncate();
+        DB::statement('SET FOREIGN_KEY_CHECKS=1');
+
+        // 3. ISI ULANG DATA BERSIH
         $rows = [
             [
                 'nama_unit'   => 'HOTEL HARMONY',
@@ -88,22 +101,26 @@ Route::get('/debug-fix-units', function () {
             ],
         ];
 
-        // Kalau mau benar-benar kosongkan dulu, baru isi:
-        // DB::statement('SET FOREIGN_KEY_CHECKS=0');
-        // DB::table('units')->truncate();
-        // DB::statement('SET FOREIGN_KEY_CHECKS=1');
-
         DB::table('units')->insert($rows);
+
+        DB::commit();
+
+        // 4. Ambil sample (sekarang sudah pasti bersih semua)
+        $afterCount  = DB::table('units')->count();
+        $afterSample = DB::table('units')
+            ->select('id', 'nama_unit')
+            ->orderBy('id')
+            ->limit(10)
+            ->get();
 
         return [
             'status'       => 'ok',
-            'after_count'  => DB::table('units')->count(),
-            'after_sample' => DB::table('units')
-                ->select('id', 'nama_unit')
-                ->limit(10)
-                ->get(),
+            'after_count'  => $afterCount,
+            'after_sample' => $afterSample,
         ];
     } catch (\Throwable $e) {
+        DB::rollBack();
+
         return response()->json([
             'status'  => 'error',
             'message' => $e->getMessage(),
