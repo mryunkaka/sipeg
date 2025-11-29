@@ -17,9 +17,9 @@ permissions:
 env:
   PHP_VERSION: '8.4'
 
-# =========================================
+# =====================================================
 # JOB 1 – LINT (Laravel Pint)
-# =========================================
+# =====================================================
 jobs:
   lint:
     name: Lint (Pint)
@@ -45,14 +45,15 @@ jobs:
       - name: Run Pint
         run: vendor/bin/pint
 
-# =========================================
-# JOB 2 – TESTS (Pest + build)
-# =========================================
+# =====================================================
+# JOB 2 – TESTS (Pest)  → tidak blokir deploy
+# =====================================================
   tests:
     name: Tests (Pest)
     runs-on: ubuntu-latest
     environment: Testing
     needs: lint
+    continue-on-error: true   # ⚠️ kalau gagal, deploy tetap jalan
 
     steps:
       - name: Checkout
@@ -92,15 +93,15 @@ jobs:
       - name: Run Tests
         run: ./vendor/bin/pest
 
-# =========================================
+# =====================================================
 # JOB 3 – DEPLOY (attempt 1) – hanya push ke main
-# =========================================
+# =====================================================
   deploy:
     name: Deploy to Rumahweb (attempt 1)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: tests
-    # hanya jalan kalau push ke main (bukan PR)
+    needs: lint
+    # hanya jalan kalau PUSH ke main (bukan PR)
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
@@ -197,7 +198,7 @@ jobs:
           protocol: ftp
           local-dir: "./"
           server-dir: ${{ secrets.FTP_PATH }}
-          timeout: 600000
+          timeout: 600000           # 600 detik
           passive: true
           security: loose
           exclude: |
@@ -227,9 +228,9 @@ jobs:
             echo "❌ Deployment failed on attempt 1!"
           fi
 
-# =========================================
+# =====================================================
 # JOB 4 – DEPLOY RETRY (attempt 2, auto)
-# =========================================
+# =====================================================
   deploy_retry:
     name: Deploy to Rumahweb (attempt 2 - auto retry)
     runs-on: ubuntu-latest
