@@ -6,6 +6,21 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MigrationController;
 
+Route::get('/test-units', function () {
+    // Test raw query
+    $raw = DB::select('SELECT * FROM units');
+
+    // Test Eloquent
+    $eloquent = \App\Models\Unit::all();
+
+    return response()->json([
+        'raw_query' => $raw,
+        'eloquent' => $eloquent,
+        'connection' => config('database.default'),
+        'charset' => config('database.connections.mysql.charset'),
+    ]);
+});
+
 Route::get('/debug-units-insert', function () {
     $id = DB::table('units')->insertGetId([
         'nama_unit'   => 'DEBUG FROM LARAVEL ' . now()->format('His'),
