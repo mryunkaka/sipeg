@@ -69,3 +69,18 @@ textarea:focus[data-flux-control],
 select:focus[data-flux-control] {
     @apply outline-hidden ring-2 ring-accent ring-offset-2 ring-offset-accent-foreground;
 }
+
+/* --- Fix: teks option select tidak terlihat di hosting --- */
+select,
+select option {
+    color: #111827;
+    /* Tailwind gray-900 */
+    background-color: #ffffff;
+}
+
+/* Placeholder "-- Pilih Unit --" */
+select option[disabled],
+select option[disabled][hidden] {
+    color: #9ca3af;
+    /* gray-400 */
+}

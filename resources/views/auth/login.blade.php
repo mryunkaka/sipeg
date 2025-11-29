@@ -51,9 +51,9 @@
             <div>
                 <label class="block mb-1 text-sm font-medium">Pilih Unit</label>
                 <select name="unit_id"
-                        class="w-full border-gray-300 rounded-lg text-sm p-2.5"
+                        class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5"
                         required>
-                    <option value="">-- Pilih Unit --</option>
+                    <option value="" disabled selected hidden>-- Pilih Unit --</option>
                     @foreach($units as $unit)
                         <option value="{{ $unit->id }}"
                             {{ old('unit_id') == $unit->id ? 'selected' : '' }}>
