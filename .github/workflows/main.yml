@@ -21,7 +21,6 @@ jobs:
           extensions: mbstring, intl, pdo_mysql
           coverage: none
 
-
       - name: Install composer dependencies
         run: |
           composer install --no-dev --optimize-autoloader --prefer-dist
@@ -32,6 +31,65 @@ jobs:
           npm run build
         env:
           CI: false
+
+      - name: Create post-deploy script
+        run: |
+          cat > post-deploy.php << 'EOF'
+          <?php
+          // Auto-generated post-deploy script
+          $password = '${{ secrets.DEPLOY_KEY }}';
+          if (!isset($_GET['key']) || $_GET['key'] !== $password) {
+              http_response_code(403);
+              die('Forbidden');
+          }
+
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+
+          header('Content-Type: text/plain');
+          echo "🔄 Post-Deploy Cache Clear\n";
+          echo str_repeat("=", 40) . "\n\n";
+
+          try {
+              $kernel->call('config:clear');
+              echo "✅ Config cleared\n";
+
+              $kernel->call('cache:clear');
+              echo "✅ Cache cleared\n";
+
+              $kernel->call('view:clear');
+              echo "✅ Views cleared\n";
+
+              $kernel->call('route:clear');
+              echo "✅ Routes cleared\n";
+
+              // Clear bootstrap cache
+              foreach (glob(__DIR__.'/bootstrap/cache/*.php') as $file) {
+                  if (basename($file) !== '.gitignore') {
+                      @unlink($file);
+                  }
+              }
+              echo "✅ Bootstrap cache cleared\n";
+
+              // Rebuild optimized cache
+              $kernel->call('config:cache');
+              echo "✅ Config cached\n";
+
+              $kernel->call('route:cache');
+              echo "✅ Routes cached\n";
+
+              echo "\n✨ Deployment successful!\n";
+
+              // Auto-delete this file after execution
+              @unlink(__FILE__);
+              echo "🗑️  Self-deleted\n";
+
+          } catch (Exception $e) {
+              http_response_code(500);
+              echo "❌ Error: " . $e->getMessage() . "\n";
+          }
+          EOF
 
       - name: Cleanup before deploy
         run: |
@@ -60,3 +118,23 @@ jobs:
             **/storage/framework/cache/**
             **/storage/framework/sessions/**
             **/storage/logs/**
+
+      - name: Trigger post-deploy cache clear
+        run: |
+          echo "⏳ Waiting for files to sync..."
+          sleep 10
+
+          echo "🔄 Clearing cache on server..."
+          curl -f -m 60 "https://sipeg.harikenangan.my.id/post-deploy.php?key=${{ secrets.DEPLOY_KEY }}" || echo "⚠️ Cache clear failed, but deployment completed"
+
+          echo "✅ Deployment completed!"
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ SIPEG deployed successfully!"
+            echo "🌐 URL: https://sipeg.harikenangan.my.id"
+          else
+            echo "❌ Deployment failed!"
+          fi
