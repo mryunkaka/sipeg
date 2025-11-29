@@ -7,21 +7,28 @@ use Illuminate\Support\Facades\Schema;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MigrationController;
 
-// ===================== DEBUG UNITS =====================
 
-// Cek isi & struktur tabel units
+/*
+|--------------------------------------------------------------------------
+| DEBUG UNITS
+|--------------------------------------------------------------------------
+| Hanya sementara dipakai untuk perbaikan tabel `units` di hosting.
+| Setelah beres, silakan dihapus.
+*/
+
+// Cek struktur & isi tabel units
 Route::get('/debug-units', function () {
     try {
         $columns = Schema::getColumnListing('units');
 
         return [
-            'env_db'       => env('DB_DATABASE'),
-            'config_db'    => config('database.connections.mysql.database'),
-            'columns'      => $columns,
-            'raw_count'    => DB::table('units')->count(),
-            'raw_sample'   => DB::table('units')->select('id', 'nama_unit')->limit(10)->get(),
-            'eloq_count'   => Unit::count(),
-            'eloq_sample'  => Unit::select('id', 'nama_unit')->limit(10)->get(),
+            'env_db'      => env('DB_DATABASE'),
+            'config_db'   => config('database.connections.mysql.database'),
+            'columns'     => $columns,
+            'raw_count'   => DB::table('units')->count(),
+            'raw_sample'  => DB::table('units')->select('id', 'nama_unit')->limit(10)->get(),
+            'eloq_count'  => Unit::count(),
+            'eloq_sample' => Unit::select('id', 'nama_unit')->limit(10)->get(),
         ];
     } catch (\Throwable $e) {
         return response()->json([
@@ -33,17 +40,11 @@ Route::get('/debug-units', function () {
     }
 });
 
+// Isi ulang tabel units
 Route::get('/debug-fix-units', function () {
     try {
         $now = now();
 
-        // Opsional: kalau mau benar-benar kosongkan dulu
-        // HATI-HATI: akan menghapus semua data units yang ada
-        // DB::statement('SET FOREIGN_KEY_CHECKS=0');
-        // DB::table('units')->truncate();
-        // DB::statement('SET FOREIGN_KEY_CHECKS=1');
-
-        // Data unit yang mau dimasukkan
         $rows = [
             [
                 'nama_unit'   => 'HOTEL HARMONY',
@@ -87,6 +88,11 @@ Route::get('/debug-fix-units', function () {
             ],
         ];
 
+        // Kalau mau benar-benar kosongkan dulu, baru isi:
+        // DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        // DB::table('units')->truncate();
+        // DB::statement('SET FOREIGN_KEY_CHECKS=1');
+
         DB::table('units')->insert($rows);
 
         return [
@@ -106,6 +112,7 @@ Route::get('/debug-fix-units', function () {
         ], 500);
     }
 });
+
 
 // ===============================
 // 1. AUTH (HALAMAN LOGIN SAJA YANG BEBAS)
