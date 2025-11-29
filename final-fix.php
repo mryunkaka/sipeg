@@ -1,4 +1,6 @@
 <?php
+
+use Illuminate\Support\Facades\DB;
 // final-fix.php
 // Akses: https://sipeg.harikenangan.my.id/final-fix.php?key=S1p3g!@#321
 // HAPUS FILE INI setelah selesai!
@@ -112,7 +114,7 @@ try {
     $rawStmt->execute();
     $rawResults = $rawStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    echo "<span class='success'>✅ Found {$rawResults->count()} units via PDO</span><br>";
+    echo "<span class='success'>✅ Found " . count($rawResults) . " units via PDO</span><br>";
     echo "<div style='background:#2a2a2a;padding:10px;margin:10px 0;'>";
     foreach (array_slice($rawResults, 0, 3) as $row) {
         $id = htmlspecialchars($row['id']);
