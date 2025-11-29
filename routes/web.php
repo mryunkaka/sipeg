@@ -18,17 +18,37 @@ use App\Http\Controllers\MigrationController;
 
 Route::get('/debug-units', function () {
     try {
-        $columns = Schema::getColumnListing('units');
+        if (! Schema::hasTable('units')) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Tabel `units` tidak ada.',
+            ], 500);
+        }
 
-        return [
-            'env_db'      => env('DB_DATABASE'),
-            'config_db'   => config('database.connections.mysql.database'),
+        $envDb    = env('DB_DATABASE');
+        $configDb = config('database.connections.mysql.database');
+
+        $columns = DB::select("
+            SELECT column_name AS name,
+                   data_type   AS type_name,
+                   column_type AS type,
+                   collation_name AS collation
+            FROM information_schema.columns
+            WHERE table_schema = schema()
+              AND table_name = 'units'
+            ORDER BY ordinal_position ASC
+        ");
+
+        $rawCount  = DB::table('units')->count();
+        $rawSample = DB::select('SELECT id, nama_unit FROM units ORDER BY id ASC LIMIT 10');
+
+        return response()->json([
+            'env_db'      => $envDb,
+            'config_db'   => $configDb,
             'columns'     => $columns,
-            'raw_count'   => DB::table('units')->count(),
-            'raw_sample'  => DB::table('units')->select('id', 'nama_unit')->limit(10)->get(),
-            'eloq_count'  => Unit::count(),
-            'eloq_sample' => Unit::select('id', 'nama_unit')->limit(10)->get(),
-        ];
+            'raw_count'   => $rawCount,
+            'raw_sample'  => $rawSample,
+        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR);
     } catch (\Throwable $e) {
         return response()->json([
             'status'  => 'error',
@@ -39,28 +59,34 @@ Route::get('/debug-units', function () {
     }
 });
 
+
 // Isi ulang tabel units
 
+// =========================
+// DEBUG: HARD RESET UNITS
+// =========================
 Route::get('/debug-fix-units', function () {
     try {
-        $now = now();
+        // 1. Pastikan tabel units memang ada
+        if (! Schema::hasTable('units')) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Tabel `units` tidak ditemukan di database.',
+            ], 500);
+        }
 
-        // 1. Matikan cek foreign key sementara
+        // 2. Matikan foreign key sementara
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
 
-        // 2. Truncate users & units (HATI-HATI: reset total isi kedua tabel)
-        if (Schema::hasTable('users')) {
-            DB::table('users')->truncate();
-        }
+        // 3. Kosongkan tabel units (hapus semua baris)
+        DB::table('units')->delete();
 
-        if (Schema::hasTable('units')) {
-            DB::table('units')->truncate();
-        }
-
-        // 3. Nyalakan lagi cek foreign key
+        // 4. Nyalakan lagi foreign key
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
-        // 4. Isi ulang data units bersih
+        // 5. Insert data baru
+        $now = now();
+
         $rows = [
             [
                 'nama_unit'   => 'HOTEL HARMONY',
@@ -106,20 +132,16 @@ Route::get('/debug-fix-units', function () {
 
         DB::table('units')->insert($rows);
 
+        // 6. Baca ulang dari database apa adanya
         $afterCount  = DB::table('units')->count();
-        $afterSample = DB::table('units')
-            ->select('id', 'nama_unit')
-            ->orderBy('id')
-            ->limit(10)
-            ->get();
+        $afterSample = DB::select('SELECT id, nama_unit FROM units ORDER BY id ASC LIMIT 10');
 
-        return [
+        return response()->json([
             'status'       => 'ok',
             'after_count'  => $afterCount,
             'after_sample' => $afterSample,
-        ];
+        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR);
     } catch (\Throwable $e) {
-        // ⚠️ TANPA rollBack karena kita tidak pakai transaction
         return response()->json([
             'status'  => 'error',
             'message' => $e->getMessage(),

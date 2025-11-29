@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: Testing
     needs: lint
-    continue-on-error: true   # ⚠️ kalau gagal, deploy tetap jalan
+    continue-on-error: true   # kalau gagal, deploy tetap jalan
 
     steps:
       - name: Checkout
@@ -94,7 +94,7 @@ jobs:
         run: ./vendor/bin/pest
 
 # =====================================================
-# JOB 3 – DEPLOY (attempt 1) – hanya push ke main
+# FUNGSI BANTU: STEP POST-DEPLOY (DIPAKAI DI SEMUA ATTEMPT)
 # =====================================================
   deploy:
     name: Deploy to Rumahweb (attempt 1)
@@ -188,17 +188,17 @@ jobs:
           rm -rf tests
           rm -rf .github
 
-      - name: FTP Deploy (attempt 1)
+      - name: SFTP Deploy (attempt 1)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          port: ${{ secrets.FTP_PORT }}
-          protocol: ftp
+          port: ${{ secrets.FTP_PORT }}   # isi 22 di Secrets kalau pakai SFTP
+          protocol: sftp                  # ← pakai SFTP biar stabil
           local-dir: "./"
           server-dir: ${{ secrets.FTP_PATH }}
-          timeout: 600000           # 600 detik
+          timeout: 120000                 # 120 detik per operasi
           passive: true
           security: loose
           exclude: |
@@ -217,7 +217,7 @@ jobs:
           sleep 10
           echo "🔄 Clearing cache on server..."
           curl -f -m 60 "https://sipeg.harikenangan.my.id/post-deploy.php?key=${{ secrets.DEPLOY_KEY }}" || echo "⚠️ Cache clear failed, but deployment completed"
-          echo "✅ Deployment completed!"
+          echo "✅ Deployment completed! (attempt 1)"
 
       - name: Notify deployment status
         if: always()
@@ -231,12 +231,12 @@ jobs:
 # =====================================================
 # JOB 4 – DEPLOY RETRY (attempt 2, auto)
 # =====================================================
-  deploy_retry:
+  deploy_retry_2:
     name: Deploy to Rumahweb (attempt 2 - auto retry)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: deploy
-    if: needs.deploy.result == 'failure'
+    if: needs.deploy.result == 'failure' && github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
       - name: Checkout repository
@@ -310,17 +310,17 @@ jobs:
           rm -rf tests
           rm -rf .github
 
-      - name: FTP Deploy (attempt 2)
+      - name: SFTP Deploy (attempt 2)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           port: ${{ secrets.FTP_PORT }}
-          protocol: ftp
+          protocol: sftp
           local-dir: "./"
           server-dir: ${{ secrets.FTP_PATH }}
-          timeout: 600000
+          timeout: 120000
           passive: true
           security: loose
           exclude: |
@@ -337,9 +337,9 @@ jobs:
         run: |
           echo "⏳ Waiting for files to sync..."
           sleep 10
-          echo "🔄 Clearing cache on server (retry)..."
+          echo "🔄 Clearing cache on server (retry 2)..."
           curl -f -m 60 "https://sipeg.harikenangan.my.id/post-deploy.php?key=${{ secrets.DEPLOY_KEY }}" || echo "⚠️ Cache clear failed, but deployment completed"
-          echo "✅ Deployment completed (retry)!"
+          echo "✅ Deployment completed! (attempt 2)"
 
       - name: Notify deployment status
         if: always()
@@ -347,5 +347,127 @@ jobs:
           if [ "${{ job.status }}" == 'success' ]; then
             echo "✅ SIPEG deployed successfully! (attempt 2)"
           else
-            echo "❌ Deployment failed even after retry!"
+            echo "❌ Deployment failed on attempt 2!"
+          fi
+
+# =====================================================
+# JOB 5 – DEPLOY RETRY (attempt 3, auto)
+# =====================================================
+  deploy_retry_3:
+    name: Deploy to Rumahweb (attempt 3 - auto retry)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: deploy_retry_2
+    if: needs.deploy_retry_2.result == 'failure' && github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, intl, pdo_mysql
+          coverage: none
+
+      - name: Install composer dependencies
+        run: |
+          composer install --no-dev --optimize-autoloader --prefer-dist
+
+      - name: Build assets (Vite)
+        run: |
+          npm ci
+          npm run build
+        env:
+          CI: false
+
+      - name: Create post-deploy script
+        run: |
+          cat > post-deploy.php << 'EOF'
+          <?php
+          $password = '${{ secrets.DEPLOY_KEY }}';
+          if (!isset($_GET['key']) || $_GET['key'] !== $password) {
+              http_response_code(403);
+              die('Forbidden');
+          }
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+          header('Content-Type: text/plain');
+          echo "🔄 Post-Deploy Cache Clear\n";
+          echo str_repeat("=", 40) . "\n\n";
+          try {
+              $kernel->call('config:clear');
+              echo "✅ Config cleared\n";
+              $kernel->call('cache:clear');
+              echo "✅ Cache cleared\n";
+              $kernel->call('view:clear');
+              echo "✅ Views cleared\n";
+              $kernel->call('route:clear');
+              echo "✅ Routes cleared\n";
+              foreach (glob(__DIR__.'/bootstrap/cache/*.php') as $file) {
+                  if (basename($file) !== '.gitignore') {
+                      @unlink($file);
+                  }
+              }
+              echo "✅ Bootstrap cache cleared\n";
+              $kernel->call('config:cache');
+              echo "✅ Config cached\n";
+              $kernel->call('route:cache');
+              echo "✅ Routes cached\n";
+              echo "\n✨ Deployment successful!\n";
+              @unlink(__FILE__);
+              echo "🗑️  Self-deleted\n";
+          } catch (Exception $e) {
+              http_response_code(500);
+              echo "❌ Error: " . $e->getMessage() . "\n";
+          }
+          EOF
+
+      - name: Cleanup before deploy
+        run: |
+          rm -rf node_modules
+          rm -rf .git
+          rm -rf tests
+          rm -rf .github
+
+      - name: SFTP Deploy (attempt 3)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: ${{ secrets.FTP_PORT }}
+          protocol: sftp
+          local-dir: "./"
+          server-dir: ${{ secrets.FTP_PATH }}
+          timeout: 120000
+          passive: true
+          security: loose
+          exclude: |
+            **/.git*
+            **/.github/**
+            **/node_modules/**
+            **/tests/**
+            **/.env
+            **/storage/framework/cache/**
+            **/storage/framework/sessions/**
+            **/storage/logs/**
+
+      - name: Trigger post-deploy cache clear
+        run: |
+          echo "⏳ Waiting for files to sync..."
+          sleep 10
+          echo "🔄 Clearing cache on server (retry 3)..."
+          curl -f -m 60 "https://sipeg.harikenangan.my.id/post-deploy.php?key=${{ secrets.DEPLOY_KEY }}" || echo "⚠️ Cache clear failed, but deployment completed"
+          echo "✅ Deployment completed! (attempt 3)"
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == 'success' ]; then
+            echo "✅ SIPEG deployed successfully! (attempt 3)"
+          else
+            echo "❌ Deployment failed even after 3 attempts!"
           fi
