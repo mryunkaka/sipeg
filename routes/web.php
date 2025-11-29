@@ -6,6 +6,79 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MigrationController;
 
+Route::get('/debug-units-insert', function () {
+    $id = DB::table('units')->insertGetId([
+        'nama_unit'   => 'DEBUG FROM LARAVEL ' . now()->format('His'),
+        'alamat_unit' => 'DEBUG LARAVEL',
+        'no_hp_unit'  => '0000000000',
+        'logo_unit'   => null,
+        'created_at'  => now(),
+        'updated_at'  => now(),
+    ]);
+
+    return [
+        'inserted_id' => $id,
+    ];
+});
+
+Route::get('/debug-seed-units', function () {
+    // HATI-HATI: ini akan menghapus semua data units di DB yang dipakai Laravel
+    DB::table('units')->truncate();
+
+    $now = now();
+
+    $units = [
+        [
+            'nama_unit'   => 'HOTEL HARMONY',
+            'alamat_unit' => 'Jl. Raya Batulicin, ...',
+            'no_hp_unit'  => '087878987654',
+            'logo_unit'   => null,
+            'created_at'  => $now,
+            'updated_at'  => $now,
+        ],
+        [
+            'nama_unit'   => 'GUESTHOUSE RUMA',
+            'alamat_unit' => 'Jl. Suryagandamana, ...',
+            'no_hp_unit'  => '087877521992',
+            'logo_unit'   => null,
+            'created_at'  => $now,
+            'updated_at'  => $now,
+        ],
+        [
+            'nama_unit'   => 'HOTEL GALERY',
+            'alamat_unit' => 'Jl. Pangeran Hidayat No.26, ...',
+            'no_hp_unit'  => '085827191234',
+            'logo_unit'   => null,
+            'created_at'  => $now,
+            'updated_at'  => $now,
+        ],
+        [
+            'nama_unit'   => 'HOTEL KARTIKA',
+            'alamat_unit' => 'Jl. Veteran No.2, ...',
+            'no_hp_unit'  => '082150942567',
+            'logo_unit'   => null,
+            'created_at'  => $now,
+            'updated_at'  => $now,
+        ],
+        [
+            'nama_unit'   => 'HOTEL LAVENDER',
+            'alamat_unit' => 'Jl. Raya provinsi No. km 163, ...',
+            'no_hp_unit'  => '085289987654',
+            'logo_unit'   => null,
+            'created_at'  => $now,
+            'updated_at'  => $now,
+        ],
+    ];
+
+    DB::table('units')->insert($units);
+
+    return [
+        'status'      => 'ok',
+        'inserted'    => count($units),
+        'db_database' => config('database.connections.mysql.database'),
+    ];
+});
+
 Route::get('/debug-units', function () {
     return [
         'env_db'    => env('DB_DATABASE'),
