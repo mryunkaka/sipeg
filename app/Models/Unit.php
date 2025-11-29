@@ -7,6 +7,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Unit extends Model
 {
+    // Paksa pakai koneksi mysql utama
+    protected $connection = 'mysql';
+
+    // Biar mass assignment aman
+    protected $guarded = [];
+
     protected $table = 'units';
     protected $fillable = [
         'nama_unit',

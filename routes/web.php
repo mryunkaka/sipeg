@@ -1,16 +1,30 @@
 <?php
 
 use App\Models\Unit;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MigrationController;
 
 Route::get('/debug-units', function () {
     return [
-        'env_db'      => env('DB_DATABASE'),
-        'config_db'   => config('database.connections.mysql.database'),
-        'units_count' => Unit::count(),
-        'sample'      => Unit::take(5)->get(['id', 'nama_unit']),
+        'env_db'    => env('DB_DATABASE'),
+        'env_host'  => env('DB_HOST'),
+        'env_user'  => env('DB_USERNAME'),
+
+        'default_connection' => config('database.default'),
+        'config_host'        => config('database.connections.mysql.host'),
+        'config_db'          => config('database.connections.mysql.database'),
+        'config_user'        => config('database.connections.mysql.username'),
+
+        // Hitung dengan query builder mentah
+        'raw_count'   => DB::table('units')->count(),
+        'raw_sample'  => DB::table('units')->select('id', 'nama_unit')->limit(5)->get(),
+
+        // Hitung dengan Eloquent model Unit
+        'eloq_conn'   => (new Unit)->getConnectionName(),
+        'eloq_count'  => Unit::count(),
+        'eloq_sample' => Unit::select('id', 'nama_unit')->limit(5)->get(),
     ];
 });
 
