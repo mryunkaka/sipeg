@@ -50,19 +50,27 @@
 
             <div>
                 <label class="block mb-1 text-sm font-medium">Pilih Unit</label>
+
                 <select name="unit_id"
                         class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5"
-                        required>
-                    <option value="" disabled selected hidden>-- Pilih Unit --</option>
+                        required
+                        style="color:#111827; background:#ffffff;"> {{-- paksa warna teks --}}
+                    <option value="" disabled {{ old('unit_id') ? '' : 'selected' }}>-- Pilih Unit --</option>
+
                     @foreach($units as $unit)
-                        <option value="{{ $unit->id }}"
-                            {{ old('unit_id') == $unit->id ? 'selected' : '' }}>
+                        <option value="{{ $unit->id }}" style="color:#111827;">
                             {{ $unit->nama_unit }}
                         </option>
                     @endforeach
                 </select>
-            </div>
 
+                {{-- DEBUG KECIL: kasih info kalau units kosong --}}
+                @if(isset($unitsCount) && $unitsCount === 0)
+                    <p class="mt-1 text-xs text-red-600">
+                        (Debug) Tidak ada data unit yang dikirim ke view.
+                    </p>
+                @endif
+            </div>
             <button type="submit"
                 class="w-full bg-blue-600 text-white p-2.5 rounded-lg text-sm font-medium hover:bg-blue-700">
                 Masuk

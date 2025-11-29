@@ -12,8 +12,11 @@ class AuthController extends Controller
 {
     public function showLoginForm()
     {
-        $units = Unit::orderBy('nama_unit')->get();
-        return view('auth.login', compact('units'));
+        // Ambil unit, tapi kita juga tahu count-nya
+        $units = \App\Models\Unit::orderBy('nama_unit')->get(['id', 'nama_unit']);
+        $unitsCount = $units->count();
+
+        return view('auth.login', compact('units', 'unitsCount'));
     }
 
     public function login(Request $request)

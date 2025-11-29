@@ -1,9 +1,18 @@
 <?php
 
+use App\Models\Unit;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MigrationController;
 
+Route::get('/debug-units', function () {
+    return [
+        'env_db'      => env('DB_DATABASE'),
+        'config_db'   => config('database.connections.mysql.database'),
+        'units_count' => Unit::count(),
+        'sample'      => Unit::take(5)->get(['id', 'nama_unit']),
+    ];
+});
 
 // ===============================
 // 1. AUTH (HALAMAN LOGIN SAJA YANG BEBAS)
