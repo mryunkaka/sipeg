@@ -37,9 +37,6 @@ Route::get('/debug-units-insert', function () {
 });
 
 Route::get('/debug-seed-units', function () {
-    // HATI-HATI: ini akan menghapus semua data units di DB yang dipakai Laravel
-    DB::table('units')->truncate();
-
     $now = now();
 
     $units = [
@@ -47,50 +44,48 @@ Route::get('/debug-seed-units', function () {
             'nama_unit'   => 'HOTEL HARMONY',
             'alamat_unit' => 'Jl. Raya Batulicin, ...',
             'no_hp_unit'  => '087878987654',
-            'logo_unit'   => null,
-            'created_at'  => $now,
-            'updated_at'  => $now,
         ],
         [
             'nama_unit'   => 'GUESTHOUSE RUMA',
             'alamat_unit' => 'Jl. Suryagandamana, ...',
             'no_hp_unit'  => '087877521992',
-            'logo_unit'   => null,
-            'created_at'  => $now,
-            'updated_at'  => $now,
         ],
         [
             'nama_unit'   => 'HOTEL GALERY',
             'alamat_unit' => 'Jl. Pangeran Hidayat No.26, ...',
             'no_hp_unit'  => '085827191234',
-            'logo_unit'   => null,
-            'created_at'  => $now,
-            'updated_at'  => $now,
         ],
         [
             'nama_unit'   => 'HOTEL KARTIKA',
             'alamat_unit' => 'Jl. Veteran No.2, ...',
             'no_hp_unit'  => '082150942567',
-            'logo_unit'   => null,
-            'created_at'  => $now,
-            'updated_at'  => $now,
         ],
         [
             'nama_unit'   => 'HOTEL LAVENDER',
             'alamat_unit' => 'Jl. Raya provinsi No. km 163, ...',
             'no_hp_unit'  => '085289987654',
-            'logo_unit'   => null,
-            'created_at'  => $now,
-            'updated_at'  => $now,
         ],
     ];
 
-    DB::table('units')->insert($units);
+    // kosongkan dulu isi units (lebih aman delete biasa, bukan truncate)
+    DB::table('users')->update(['unit_id' => null]);  // jaga FK
+    DB::table('units')->delete();
+
+    foreach ($units as $u) {
+        DB::table('units')->insert([
+            'nama_unit'   => $u['nama_unit'],
+            'alamat_unit' => $u['alamat_unit'],
+            'no_hp_unit'  => $u['no_hp_unit'],
+            'logo_unit'   => null,
+            'created_at'  => $now,
+            'updated_at'  => $now,
+        ]);
+    }
 
     return [
-        'status'      => 'ok',
-        'inserted'    => count($units),
-        'db_database' => config('database.connections.mysql.database'),
+        'status'   => 'ok',
+        'inserted' => count($units),
+        'db'       => config('database.connections.mysql.database'),
     ];
 });
 
