@@ -7,16 +7,9 @@ use Illuminate\Support\Facades\Schema;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MigrationController;
 
-/*
-|--------------------------------------------------------------------------
-| DEBUG: Perbaiki & Seed Ulang Tabel UNITS
-|--------------------------------------------------------------------------
-|
-| HANYA UNTUK SEMENTARA DI HOSTING. Setelah beres, hapus route ini.
-|
-*/
+// ===================== DEBUG UNITS =====================
 
-// 1. Lihat struktur tabel units + sample data
+// Cek isi & struktur tabel units
 Route::get('/debug-units', function () {
     try {
         $columns = Schema::getColumnListing('units');
@@ -40,13 +33,12 @@ Route::get('/debug-units', function () {
     }
 });
 
-// 2. Perbaiki & isi ulang data units
+// Perbaiki & isi ulang data units
 Route::get('/debug-fix-units', function () {
     try {
         $now     = now();
         $columns = Schema::getColumnListing('units');
 
-        // Daftar unit yang mau kita pastikan ada
         $seedUnits = [
             'HOTEL HARMONY',
             'GUESTHOUSE RUMA',
@@ -57,23 +49,17 @@ Route::get('/debug-fix-units', function () {
 
         DB::beginTransaction();
 
-        // Hapus baris-baris korup (nama_unit null / kosong)
+        // hapus baris korup (nama_unit kosong)
         DB::table('units')
             ->whereNull('nama_unit')
             ->orWhere('nama_unit', '')
             ->delete();
-
-        // Option: kalau mau benar-benar kosongkan dulu
-        // DB::statement('SET FOREIGN_KEY_CHECKS=0');
-        // DB::table('units')->delete();
-        // DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
         foreach ($seedUnits as $nama) {
             $data = [
                 'nama_unit' => $nama,
             ];
 
-            // Isi kolom lain hanya kalau kolomnya memang ada di tabel
             if (in_array('alamat_unit', $columns)) {
                 $data['alamat_unit'] = 'Alamat ' . $nama;
             }
@@ -94,7 +80,6 @@ Route::get('/debug-fix-units', function () {
                 $data['updated_at'] = $now;
             }
 
-            // updateOrInsert supaya tidak error walaupun sudah ada
             DB::table('units')->updateOrInsert(
                 ['nama_unit' => $nama],
                 $data
@@ -105,7 +90,6 @@ Route::get('/debug-fix-units', function () {
 
         return [
             'status'     => 'ok',
-            'columns'    => $columns,
             'raw_count'  => DB::table('units')->count(),
             'eloq_count' => Unit::count(),
             'sample'     => Unit::select('id', 'nama_unit')->limit(10)->get(),
